@@ -1,0 +1,19 @@
+services:
+
+  frontend:
+    build:
+      context: ./servicehub-frontend
+    container_name: servicehub-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./servicehub-backend
+    container_name: servicehub-backend
+    env_file:
+      - ./servicehub-backend/.env
+    ports:
+      - "5000:5000"
