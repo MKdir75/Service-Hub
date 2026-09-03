@@ -154,7 +154,7 @@ jobs:
           HTTP_STATUS=$(curl -sS -o /tmp/docker-auth-response.json \
             -w "%{http_code}" \
             -u "$DOCKERHUB_USERNAME:$DOCKERHUB_TOKEN" \
-            "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${DOCKERHUB_USERNAME}/servicehub-backend:pull,push")
+            "https://auth.docker.io/token?service=registry.docker.io")
 
           echo "Docker Hub auth HTTP status: $HTTP_STATUS"
 
@@ -162,6 +162,11 @@ jobs:
             echo "Docker Hub authentication succeeded"
           else
             echo "Docker Hub authentication failed"
+            echo "Response content type:"
+            curl -sSI \
+              -u "$DOCKERHUB_USERNAME:$DOCKERHUB_TOKEN" \
+              "https://auth.docker.io/token?service=registry.docker.io" \
+              | grep -i "content-type" || true
             exit 1
           fi
 
