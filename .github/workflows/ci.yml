@@ -90,6 +90,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+
       # --------------------------------------
       # Check Docker Hub Secrets
       # --------------------------------------
@@ -112,6 +113,24 @@ jobs:
           echo "DOCKERHUB_USERNAME is set"
           echo "DOCKERHUB_TOKEN is set"
 
+          case "$DOCKERHUB_TOKEN" in
+            dckr_pat_*)
+              echo "Docker Hub token prefix looks correct"
+              ;;
+            *)
+              echo "Docker Hub token does NOT start with dckr_pat_"
+              exit 1
+              ;;
+          esac
+
+          if [[ "$DOCKERHUB_TOKEN" =~ [[:space:]] ]]; then
+            echo "Docker Hub token contains whitespace"
+            exit 1
+          fi
+
+          echo "Docker Hub token format check passed"
+
+
       # --------------------------------------
       # Login to Docker Hub
       # --------------------------------------
@@ -125,6 +144,7 @@ jobs:
             --username "$DOCKERHUB_USERNAME" \
             --password-stdin
 
+
       # --------------------------------------
       # Build & Push Backend
       # --------------------------------------
@@ -136,6 +156,7 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/servicehub-backend:latest
 
+
       # --------------------------------------
       # Build & Push Frontend
       # --------------------------------------
@@ -146,4 +167,3 @@ jobs:
           context: ./servicehub-frontend
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/servicehub-frontend:latest
-
