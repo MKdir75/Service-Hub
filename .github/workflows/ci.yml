@@ -151,15 +151,17 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          RESPONSE=$(curl -sS \
+          HTTP_STATUS=$(curl -sS -o /tmp/docker-auth-response.json \
+            -w "%{http_code}" \
             -u "$DOCKERHUB_USERNAME:$DOCKERHUB_TOKEN" \
-            https://hub.docker.com/v2/user/)
+            "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${DOCKERHUB_USERNAME}/servicehub-backend:pull,push")
 
-          if echo "$RESPONSE" | grep -q '"username"'; then
+          echo "Docker Hub auth HTTP status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" = "200" ]; then
             echo "Docker Hub authentication succeeded"
           else
             echo "Docker Hub authentication failed"
-            echo "Response does not contain expected authentication data"
             exit 1
           fi
 
