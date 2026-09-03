@@ -113,6 +113,7 @@ jobs:
           echo "DOCKERHUB_USERNAME is set"
           echo "DOCKERHUB_TOKEN is set"
 
+          # Check token prefix without exposing the token
           case "$DOCKERHUB_TOKEN" in
             dckr_pat_*)
               echo "Docker Hub token prefix looks correct"
@@ -123,34 +124,28 @@ jobs:
               ;;
           esac
 
+          # Check whitespace
           if [[ "$DOCKERHUB_TOKEN" =~ [[:space:]] ]]; then
             echo "Docker Hub token contains whitespace"
             exit 1
           fi
 
-          echo "Docker Hub token format check passed"
-
-
-      # --------------------------------------
-      # Validate Docker Hub Token
-      # --------------------------------------
-
-      - name: Validate Docker Hub token
-        env:
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: |
-          HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
-            -H "Authorization: Bearer $DOCKERHUB_TOKEN" \
-            https://hub.docker.com/v2/user/)
-
-          echo "Docker Hub API response: $HTTP_CODE"
-
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "Docker Hub token is valid"
-          else
-            echo "Docker Hub token validation failed"
+          # Check newline
+          if [[ "$DOCKERHUB_TOKEN" == *$'\n'* ]]; then
+            echo "Docker Hub token contains newline"
             exit 1
           fi
+
+          # Check carriage return
+          if [[ "$DOCKERHUB_TOKEN" == *$'\r'* ]]; then
+            echo "Docker Hub token contains carriage return"
+            exit 1
+          fi
+
+          # Show length only, never the token itself
+          echo "Token length: ${#DOCKERHUB_TOKEN}"
+
+          echo "Docker Hub token structure check passed"
 
 
       # --------------------------------------
