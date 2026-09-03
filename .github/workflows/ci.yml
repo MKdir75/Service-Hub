@@ -151,10 +151,13 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          HTTP_STATUS=$(curl -sS -o /tmp/docker-auth-response.json \
+          HTTP_STATUS=$(curl -sS \
+            -o /tmp/docker-auth-response.json \
             -w "%{http_code}" \
-            -u "$DOCKERHUB_USERNAME:$DOCKERHUB_TOKEN" \
-            "https://auth.docker.io/token?service=registry.docker.io")
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d "{\"identifier\":\"$DOCKERHUB_USERNAME\",\"secret\":\"$DOCKERHUB_TOKEN\"}" \
+            "https://hub.docker.com/v2/auth/token")
 
           echo "Docker Hub auth HTTP status: $HTTP_STATUS"
 
@@ -162,11 +165,7 @@ jobs:
             echo "Docker Hub authentication succeeded"
           else
             echo "Docker Hub authentication failed"
-            echo "Response content type:"
-            curl -sSI \
-              -u "$DOCKERHUB_USERNAME:$DOCKERHUB_TOKEN" \
-              "https://auth.docker.io/token?service=registry.docker.io" \
-              | grep -i "content-type" || true
+            echo "Docker Hub returned HTTP status: $HTTP_STATUS"
             exit 1
           fi
 
@@ -176,7 +175,7 @@ jobs:
       # --------------------------------------
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -187,7 +186,7 @@ jobs:
       # --------------------------------------
 
       - name: Build and push backend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./servicehub-backend
           push: true
@@ -199,7 +198,7 @@ jobs:
       # --------------------------------------
 
       - name: Build and push frontend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./servicehub-frontend
           push: true
