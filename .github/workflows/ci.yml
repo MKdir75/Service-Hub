@@ -143,30 +143,14 @@ jobs:
 
 
       # --------------------------------------
-      # Test Docker Hub Registry Connection
-      # --------------------------------------
-
-      - name: Test Docker Hub registry
-        run: |
-          echo "Testing Docker Hub registry connection..."
-
-          curl -fsS https://registry-1.docker.io/v2/ > /dev/null
-
-          echo "Docker Hub registry connection is working"
-
-
-      # --------------------------------------
       # Login to Docker Hub
       # --------------------------------------
 
       - name: Log in to Docker Hub
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: |
-          printf '%s' "$DOCKERHUB_TOKEN" | docker login docker.io \
-            --username "$DOCKERHUB_USERNAME" \
-            --password-stdin
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
 
       # --------------------------------------
