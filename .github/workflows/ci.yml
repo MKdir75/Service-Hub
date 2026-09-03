@@ -137,11 +137,29 @@ jobs:
     needs:
       - docker
 
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+
     permissions:
       id-token: write
       contents: read
 
     steps:
+
+      # ==========================================
+      # OIDC DEBUG
+      # ==========================================
+
+      - name: Debug GitHub OIDC context
+        run: |
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Ref: $GITHUB_REF"
+          echo "Event: $GITHUB_EVENT_NAME"
+          echo "Actor: $GITHUB_ACTOR"
+
+
+      # ==========================================
+      # AWS OIDC AUTHENTICATION
+      # ==========================================
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v5
@@ -149,26 +167,21 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
+
+      # ==========================================
+      # DEPLOY TO EC2 USING SSM
+      # ==========================================
+
       - name: Deploy ServiceHub to EC2
         shell: bash
         run: |
+
           echo "Sending deployment command to EC2..."
 
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "i-0208da3058680b912" \
             --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "set -e",
-              "cd ~/servicehub",
-              "sudo docker pull ghcr.io/mkdir75/servicehub-backend:latest",
-              "sudo docker pull ghcr.io/mkdir75/servicehub-frontend:latest",
-              "sudo docker stop servicehub-frontend || true",
-              "sudo docker rm servicehub-frontend || true",
-              "sudo docker stop servicehub-backend || true",
-              "sudo docker rm servicehub-backend || true",
-              "sudo docker run -d --name servicehub-backend --restart unless-stopped --env-file ~/servicehub/.env --network servicehub-network ghcr.io/mkdir75/servicehub-backend:latest",
-              "sudo docker run -d --name servicehub-frontend --restart unless-stopped --network servicehub-network -p 80:80 ghcr.io/mkdir75/servicehub-frontend:latest"
-            ]' \
+            --parameters commands="set -e,cd ~/servicehub,sudo docker pull ghcr.io/mkdir75/servicehub-backend:latest,sudo docker pull ghcr.io/mkdir75/servicehub-frontend:latest,sudo docker stop servicehub-frontend || true,sudo docker rm servicehub-frontend || true,sudo docker stop servicehub-backend || true,sudo docker rm servicehub-backend || true,sudo docker run -d --name servicehub-backend --restart unless-stopped --env-file ~/servicehub/.env --network servicehub-network ghcr.io/mkdir75/servicehub-backend:latest,sudo docker run -d --name servicehub-frontend --restart unless-stopped --network servicehub-network -p 80:80 ghcr.io/mkdir75/servicehub-frontend:latest" \
             --query "Command.CommandId" \
             --output text)
 
