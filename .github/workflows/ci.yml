@@ -132,6 +132,28 @@ jobs:
 
 
       # --------------------------------------
+      # Validate Docker Hub Token
+      # --------------------------------------
+
+      - name: Validate Docker Hub token
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $DOCKERHUB_TOKEN" \
+            https://hub.docker.com/v2/user/)
+
+          echo "Docker Hub API response: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Docker Hub token is valid"
+          else
+            echo "Docker Hub token validation failed"
+            exit 1
+          fi
+
+
+      # --------------------------------------
       # Login to Docker Hub
       # --------------------------------------
 
