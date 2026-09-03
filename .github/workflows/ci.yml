@@ -78,7 +78,7 @@ jobs:
 
 
 # ==========================================
-# DOCKER BUILD & PUSH TO GHCR
+# DOCKER BUILD AND PUSH
 # ==========================================
 
   docker:
@@ -95,26 +95,12 @@ jobs:
 
     steps:
 
-      # --------------------------------------
-      # Checkout
-      # --------------------------------------
-
       - name: Checkout repository
         uses: actions/checkout@v4
-
-
-      # --------------------------------------
-      # Convert GitHub username to lowercase
-      # --------------------------------------
 
       - name: Set GHCR image owner
         run: |
           echo "IMAGE_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
-
-
-      # --------------------------------------
-      # Login to GitHub Container Registry
-      # --------------------------------------
 
       - name: Log in to GHCR
         uses: docker/login-action@v4
@@ -123,11 +109,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-
-      # --------------------------------------
-      # Build & Push Backend
-      # --------------------------------------
-
       - name: Build and push backend image
         uses: docker/build-push-action@v7
         with:
@@ -135,11 +116,6 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ env.IMAGE_OWNER }}/servicehub-backend:latest
-
-
-      # --------------------------------------
-      # Build & Push Frontend
-      # --------------------------------------
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v7
@@ -151,7 +127,7 @@ jobs:
 
 
 # ==========================================
-# CONTINUOUS DEPLOYMENT TO EC2
+# DEPLOY TO AWS EC2
 # ==========================================
 
   deploy:
@@ -161,62 +137,55 @@ jobs:
     needs:
       - docker
 
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.2.2
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
 
-          script: |
+      - name: Deploy ServiceHub to EC2
+        shell: bash
+        run: |
+          echo "Sending deployment command to EC2..."
 
-            # --------------------------------------
-            # Go to ServiceHub directory
-            # --------------------------------------
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "i-0208da3058680b912" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "set -e",
+              "cd ~/servicehub",
+              "sudo docker pull ghcr.io/mkdir75/servicehub-backend:latest",
+              "sudo docker pull ghcr.io/mkdir75/servicehub-frontend:latest",
+              "sudo docker stop servicehub-frontend || true",
+              "sudo docker rm servicehub-frontend || true",
+              "sudo docker stop servicehub-backend || true",
+              "sudo docker rm servicehub-backend || true",
+              "sudo docker run -d --name servicehub-backend --restart unless-stopped --env-file ~/servicehub/.env --network servicehub-network ghcr.io/mkdir75/servicehub-backend:latest",
+              "sudo docker run -d --name servicehub-frontend --restart unless-stopped --network servicehub-network -p 80:80 ghcr.io/mkdir75/servicehub-frontend:latest"
+            ]' \
+            --query "Command.CommandId" \
+            --output text)
 
-            cd ~/servicehub
+          echo "SSM Command ID: $COMMAND_ID"
 
+          echo "Waiting for deployment to finish..."
 
-            # --------------------------------------
-            # Pull latest Docker images
-            # --------------------------------------
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "i-0208da3058680b912"
 
-            sudo docker pull ghcr.io/mkdir75/servicehub-backend:latest
-            sudo docker pull ghcr.io/mkdir75/servicehub-frontend:latest
+          echo "Deployment command completed."
 
+          echo "Getting deployment result..."
 
-            # --------------------------------------
-            # Stop old containers
-            # --------------------------------------
-
-            sudo docker stop servicehub-frontend || true
-            sudo docker rm servicehub-frontend || true
-
-            sudo docker stop servicehub-backend || true
-            sudo docker rm servicehub-backend || true
-
-
-            # --------------------------------------
-            # Start backend
-            # --------------------------------------
-
-            sudo docker run -d \
-              --name servicehub-backend \
-              --restart unless-stopped \
-              --env-file ~/servicehub/.env \
-              --network servicehub-network \
-              ghcr.io/mkdir75/servicehub-backend:latest
-
-
-            # --------------------------------------
-            # Start frontend
-            # --------------------------------------
-
-            sudo docker run -d \
-              --name servicehub-frontend \
-              --restart unless-stopped \
-              --network servicehub-network \
-              -p 80:80 \
-              ghcr.io/mkdir75/servicehub-frontend:latest
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "i-0208da3058680b912" \
+            --query "{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}" \
+            --output yaml
