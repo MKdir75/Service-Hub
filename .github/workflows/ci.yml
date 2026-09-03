@@ -113,7 +113,6 @@ jobs:
           echo "DOCKERHUB_USERNAME is set"
           echo "DOCKERHUB_TOKEN is set"
 
-          # Check token prefix without exposing the token
           case "$DOCKERHUB_TOKEN" in
             dckr_pat_*)
               echo "Docker Hub token prefix looks correct"
@@ -124,28 +123,36 @@ jobs:
               ;;
           esac
 
-          # Check whitespace
           if [[ "$DOCKERHUB_TOKEN" =~ [[:space:]] ]]; then
             echo "Docker Hub token contains whitespace"
             exit 1
           fi
 
-          # Check newline
           if [[ "$DOCKERHUB_TOKEN" == *$'\n'* ]]; then
             echo "Docker Hub token contains newline"
             exit 1
           fi
 
-          # Check carriage return
           if [[ "$DOCKERHUB_TOKEN" == *$'\r'* ]]; then
             echo "Docker Hub token contains carriage return"
             exit 1
           fi
 
-          # Show length only, never the token itself
           echo "Token length: ${#DOCKERHUB_TOKEN}"
-
           echo "Docker Hub token structure check passed"
+
+
+      # --------------------------------------
+      # Test Docker Hub Registry Connection
+      # --------------------------------------
+
+      - name: Test Docker Hub registry
+        run: |
+          echo "Testing Docker Hub registry connection..."
+
+          curl -fsS https://registry-1.docker.io/v2/ > /dev/null
+
+          echo "Docker Hub registry connection is working"
 
 
       # --------------------------------------
