@@ -143,6 +143,28 @@ jobs:
 
 
       # --------------------------------------
+      # Test Docker Hub Authentication
+      # --------------------------------------
+
+      - name: Test Docker Hub authentication
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          RESPONSE=$(curl -sS \
+            -u "$DOCKERHUB_USERNAME:$DOCKERHUB_TOKEN" \
+            https://hub.docker.com/v2/user/)
+
+          if echo "$RESPONSE" | grep -q '"username"'; then
+            echo "Docker Hub authentication succeeded"
+          else
+            echo "Docker Hub authentication failed"
+            echo "Response does not contain expected authentication data"
+            exit 1
+          fi
+
+
+      # --------------------------------------
       # Login to Docker Hub
       # --------------------------------------
 
